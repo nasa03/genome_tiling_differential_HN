@@ -1,0 +1,161 @@
+#!/bin/bash
+
+
+## Tile human and mouse genomes
+./scripts/tile-genome.py input_files/mm10/mm10_allchr.fa.gz > mm10_all_chr_tiling.txt
+./scripts/tile-genome.py input_files/hg38_ucsc/hg38.fa.gz > hg38_all_chr_tiling.txt
+
+
+
+## Score sequences
+./scripts/pythia-oracle.py \
+	input_files/PB-PY-0011/model/ \
+	tiled_seqs/mm10_all_chr_tiling.txt \
+	scores/PB-PY-0011.mm10.scores.txt \
+	&> log/pythia-oracle_PB-PY-0011_mm10.log
+./scripts/pythia-oracle.py \
+	input_files/PB-PY-0011/model/ \
+	tiled_seqs/hg38_all_chr_tiling.txt \
+	scores/PB-PY-0011.hg38.scores.txt \
+	&> log/pythia-oracle_PB-PY-0011_hg38.log
+./scripts/pythia-oracle.py \
+	input_files/PB-PY-0012/model/ \
+	tiled_seqs/mm10_all_chr_tiling.txt \
+	scores/PB-PY-0012.mm10.scores.txt \
+	&> log/pythia-oracle_PB-PY-0012_mm10.log
+./scripts/pythia-oracle.py \
+	input_files/PB-PY-0012/model/ \
+	tiled_seqs/hg38_all_chr_tiling.txt \
+	scores/PB-PY-0012.hg38.scores.txt \
+	&> log/pythia-oracle_PB-PY-0012_hg38.log
+
+## make smaller version of files for reading
+for file in scores/*scores.txt
+do
+	echo $file
+	ofile=`echo $file | sed 's/txt/min.txt/'`
+	echo $ofile
+	sed 's/[[:space:]]-/ */' $file | \
+		sed 's/[e][-]/e*/' | \
+		sed 's/[:-]/ /g' | \
+		sed 's/[*]/-/g' | \
+		sed '1s/region/chr pos/' | \
+		awk '{print $3,$4,$5}' > $ofile
+
+	ofile2=`echo $ofile | sed 's/txt/1Mrand.txt/'`
+	echo $ofile2
+        tail -n +1 $ofile | shuf -n 1000000 > $ofile2
+done
+
+for file in scores/*min.txt
+do
+	echo $file
+	ofile=`echo $file | sed 's/txt/1Mrand.txt/'`
+	echo $ofile
+	shuf -n 1000000 $file > $ofile
+done
+
+
+## Get high scores
+analyzeScores_all.ipynb
+
+
+## make bed files
+grep human all.absdiff1.txt | \
+	awk '{OFS="\t"; print $1,$2,$2+170}' | \
+	tail -n +2 > all.absdiff1.human.bed
+grep mouse all.absdiff1.txt | \
+	awk '{OFS="\t"; print $1,$2,$2+170}' | \
+	tail -n +2 > all.absdiff1.mouse.bed
+grep human all.absdiff2_filt.txt | \
+	awk '{OFS="\t"; print $1,$2,$2+170}' | \
+	tail -n +2 > all.absdiff2_filt.human.bed
+grep mouse all.absdiff2_filt.txt | \
+	awk '{OFS="\t"; print $1,$2,$2+170}' | \
+	tail -n +2 > all.absdiff2_filt.mouse.bed
+grep human all.absdiff2.txt | \
+	awk '{OFS="\t"; print $1,$2,$2+170}' | \
+	tail -n +2 > all.absdiff2.human.bed
+grep mouse all.absdiff2.txt | \
+	awk '{OFS="\t"; print $1,$2,$2+170}' | \
+	tail -n +2 > all.absdiff2.mouse.bed
+
+
+for file in all.*bed
+do
+	echo $file
+	ofile=`echo $file | sed 's/bed/regions.txt/'`
+	awk '{print $1":"$2"-"$3}' $file > $ofile
+done
+
+
+cat hg38_all_chr_tiling.txt | \
+	awk -F'[-:\t]' '{OFS="\t"; print $2,$3,$4,$1}' > hg38_all_chr_tiling.bed
+cat mm10_all_chr_tiling.txt | \
+	awk -F'[-:\t]' '{OFS="\t"; print $2,$3,$4,$1}' > mm10_all_chr_tiling.bed
+
+
+samtools faidx input_files/hg38_ucsc/hg38.fa.gz \
+	-r scores/all.absdiff1.human.regions.txt \
+	> scores/all.absdiff1.human.fa
+samtools faidx input_files/mm10/mm10_allchr.fa.gz \
+	-r scores/all.absdiff1.mouse.regions.txt \
+	> scores/all.absdiff1.mouse.fa
+
+samtools faidx input_files/hg38_ucsc/hg38.fa.gz \
+	-r scores/all.absdiff2.human.regions.txt \
+	> scores/all.absdiff2.human.fa
+samtools faidx input_files/mm10/mm10_allchr.fa.gz \
+	-r scores/all.absdiff2.mouse.regions.txt \
+	> scores/all.absdiff2.mouse.fa
+
+
+cat all.absdiff2.mouse.fa | sed 's/chr/mchr/' > all.absdiff2.both.fa
+cat all.absdiff2.human.fa | sed 's/chr/hchr/' >> all.absdiff2.both.fa
+
+## Cluster seqs and get representative sequences (results2both.4_rep_seq.fasta)
+mmseqs easy-cluster all.absdiff2.both.fa results2both.4 tmp \
+	--min-seq-id 0.20 --cov-mode 3 -c 0.20
+
+## Get all sequences/info for clustered diff seqs
+grep ">m" scores/results2both.4_rep_seq.fasta | \
+	sed 's/[>]m//' | \
+	tail -n +2 > scores/results2both.4_rep_seq_mouse.list
+grep ">h" scores/results2both.4_rep_seq.fasta | \
+	sed 's/[>]h//' | \
+	tail -n +2 > scores/results2both.4_rep_seq_human.list
+
+getDiffScores_human.ipynb
+getDiffScores_mouse.ipynb
+
+## Get high predicted sequences/info for top seqs
+for file in scores/both*.scores.txt
+do
+	echo $file
+	echo 'N2a'
+	ofile=`echo $file | sed 's/txt/high_N2a.txt/'`
+	head -n 1 $file > $ofile
+	awk '{if (NR>1 && $3>4) {print $0}}' $file | \
+		sort -k3n,3n | tail -n 1000 \
+		>> $ofile
+	echo 'HepG2'
+	ofile=`echo $file | sed 's/txt/high_HepG2.txt/'`
+	head -n 1 $file > $ofile
+	awk '{if (NR > 1 && $4>5) {print $0}}' $file | \
+		sort -k4n,4n | tail -n 1000 \
+		>> $ofile
+done
+
+
+## get KI seqs 
+getKISeqs.ipynb
+
+
+## get angelou seqs
+zcat input_files/PB-TL-0029/library/PB-TL-0029_annotations.tsv.gz | \
+	head -n 1 > library/angelou_annotations.tsv
+while read line
+do
+	zgrep $line input_files/PB-TL-0029/library/PB-TL-0029_annotations.tsv.gz
+done < library/angelou_seqs.list >> library/angelou_annotations.tsv
+
