@@ -1,0 +1,4 @@
+outs:
+- md5: 48d25db20054d18cb3918aabd9f12b48
+  size: 14234593247
+  path: both.hg38.scores.txt
