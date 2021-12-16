@@ -159,3 +159,18 @@ do
 	zgrep $line input_files/PB-TL-0029/library/PB-TL-0029_annotations.tsv.gz
 done < library/angelou_seqs.list >> library/angelou_annotations.tsv
 
+
+## score carryover seqs
+awk '{print $3}' library_redo/carryover_seqs.txt > library_redo/carryover_seqs.list
+./scripts/pythia-oracle.py \
+	input_files/PB-PY-0011/model/ \
+	library_redo/carryover_seqs.list \
+	scores/PB-PY-0011.carryover.scores.txt \
+	&> log/pythia-oracle_PB-PY-0011_carryover.log
+./scripts/pythia-oracle.py \
+	input_files/PB-PY-0012/model/ \
+	library_redo/carryover_seqs.list \
+	scores/PB-PY-0012.carryover.scores.txt \
+	&> log/pythia-oracle_PB-PY-0012_carryover.log
+
+
