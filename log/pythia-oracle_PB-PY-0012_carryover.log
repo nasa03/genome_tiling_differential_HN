@@ -1,0 +1,7 @@
+2021-12-16 18:26:09.723150: I tensorflow/core/platform/cpu_feature_guard.cc:142] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  SSE4.1 SSE4.2 AVX AVX2 FMA
+To enable them in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2021-12-16 18:26:09.986004: I tensorflow/compiler/mlir/mlir_graph_optimization_pass.cc:116] None of the MLIR optimization passes are enabled (registered 2)
+2021-12-16 18:26:09.986715: I tensorflow/core/platform/profile_utils/cpu_utils.cc:112] CPU Frequency: 2299995000 Hz
+2021-12-16 18:26:10.745 | INFO     | __main__:<module>:35 - Predicting activity of sequences from library_redo/carryover_seqs.list using input_files/PB-PY-0012/model/.
+2021-12-16 18:26:11.652 | INFO     | __main__:<module>:44 - Processed 720 sequences.
+2021-12-16 18:26:11.658 | INFO     | __main__:<module>:52 - Finished predicting activity. Predicted activity values are in scores/PB-PY-0012.carryover.scores.txt.
